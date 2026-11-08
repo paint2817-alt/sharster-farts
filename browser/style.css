@@ -1,0 +1,23 @@
+:root{color-scheme:dark;--paper:#f6e4bf;--yellow:#ffe17c;--ink:#15292b;--edge:#46615d}
+*{box-sizing:border-box}body{margin:0;color:var(--paper);background:#122426;font:16px 'Trebuchet MS',Arial,sans-serif}
+main{width:min(1160px,96%);margin:0 auto 25px}header,.location,.binderhead,footer{display:flex;align-items:center;justify-content:space-between;gap:12px}
+header{padding:16px 2px}.brand,h1,h2{font-family:Georgia,serif}.brand{font-size:clamp(24px,3vw,38px);font-weight:bold;font-style:italic;letter-spacing:-1.8px}.wing{color:#ff9869}
+button{font:inherit;color:inherit;cursor:pointer}header button,footer button,dialog button{border:1px solid var(--edge);border-radius:4px;background:#243b3c;padding:7px 13px}
+button:focus-visible{outline:4px solid #fff;outline-offset:3px}.cabinet{border:1px solid #67776d;border-radius:7px;overflow:hidden;background:#213637}
+.location{padding:8px 15px;background:#283e3d;font:700 12px Consolas,monospace;letter-spacing:1.4px;text-transform:uppercase}.location span{color:#c7caba}
+#stage{position:relative;aspect-ratio:2.25;isolation:isolate;background:radial-gradient(ellipse at center,#415452,#1b3233);overflow:hidden}#scene{display:block;width:100%;height:100%;object-fit:cover}
+#stage.closeup #scene{object-fit:contain;background:repeating-linear-gradient(125deg,#1a2d2f 0 15px,#1c3031 15px 30px)}#actions{position:absolute;inset:0}
+.target{position:absolute;transform:translate(-50%,-50%);border:2px solid #162b2b;box-shadow:2px 3px 0 #15292bcc;border-radius:18px;background:var(--yellow);color:#172b2a;font:bold clamp(12px,1.5vw,17px) 'Trebuchet MS',sans-serif;padding:8px 14px;white-space:nowrap;touch-action:manipulation}
+.target:before{content:'✦';padding-right:5px}.target:hover,.target:focus-visible{background:#fff3c4}
+.wisp{--gas:#b5ebad;background:var(--gas);border-radius:52% 48% 32% 42%;padding:12px 18px;animation:drift 3.1s ease-in-out infinite}
+.wisp:before{content:'• ᴗ •';display:block;padding:0;font-size:17px}.wisp:hover,.wisp:focus-visible{animation-play-state:paused}.blue{--gas:#85e6ff}
+@keyframes drift{0%,100%{transform:translate(-65%,-50%) rotate(-3deg)}50%{transform:translate(-35%,-75%) rotate(3deg)}}
+.dispatch{background:var(--paper);color:var(--ink);padding:14px 19px;display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:20px}
+small,.binderhead span{font:700 11px Consolas,monospace;letter-spacing:1.6px}.dispatch small{color:#8a482d}h1,h2,p{margin:0}h1{font-size:clamp(20px,2.4vw,31px);letter-spacing:-.8px}p{font-size:15px;line-height:1.4}
+.binder{margin-top:18px}.binderhead{padding:0 2px 9px}.binderhead h2{font-size:22px}.binderhead span{color:var(--yellow)}
+ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,1fr);gap:7px}li{padding:10px 11px;border:1px dashed #566967;border-radius:3px;color:#a8b9af;font-size:13px}
+li small{display:block;font-size:9px;margin-bottom:5px}li.found{background:#f2dcab;color:#203331;border:1px solid #f5e5bf}li b{font-size:15px}
+footer{color:#b6c7bd;font-size:12px;margin-top:13px}#fx{position:absolute;inset:12% 0 auto;text-align:center;font:bold italic clamp(25px,4vw,58px) Georgia;color:#fff4ad;text-shadow:2px 3px 0 #233;pointer-events:none}
+dialog{background:var(--paper);color:var(--ink);border:3px solid var(--ink);border-radius:6px;padding:25px}dialog p{margin:12px 0 20px}dialog button{color:var(--paper);margin-right:8px}dialog::backdrop{background:#0b171ac9}
+@media(max-width:650px){main{width:98%}.dispatch{grid-template-columns:1fr;gap:5px;padding:12px}.location{font-size:10px}#stage{aspect-ratio:1.6}ol{grid-template-columns:repeat(3,1fr)}.target{padding:7px 9px}#scene{object-fit:fill}}
+@media(prefers-reduced-motion:reduce){.wisp{animation:none}}

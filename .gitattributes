@@ -1,0 +1,7 @@
+* text=auto
+*.rbxlx text eol=lf
+*.html text eol=lf
+*.lua text eol=lf
+*.py text eol=lf
+*.png binary
+*.jpg binary

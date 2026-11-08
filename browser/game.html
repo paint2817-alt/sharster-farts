@@ -1,18 +1,11 @@
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sharster Farts · Parking Lot 1</title>
-<style>/* STYLES */</style></head>
-<body>
-<main>
-  <header><div class="brand"><span class="wing">≋</span> Sharster Farts</div><button id="sound" aria-pressed="false">Sound off</button></header>
-  <section class="cabinet" aria-label="Game">
-    <div class="location"><strong id="location"></strong><span id="folio"></span></div>
-    <div id="stage"><img id="scene" alt=""><div id="actions"></div><span id="fx" aria-hidden="true"></span></div>
-    <div class="dispatch"><div><small>FIELD NOTES</small><h1 id="objective"></h1></div><p id="note" role="status"></p></div>
-  </section>
-  <section class="binder"><div class="binderhead"><h2>Fart Binder</h2><span id="count"></span></div><ol id="entries"></ol></section>
-  <footer><span>Point &amp; click · Tab + Enter also works</span><button id="restart">New shift</button></footer>
-  <dialog id="confirm"><h2>Start a new shift?</h2><p>Your binder for this browser will start empty.</p><form method="dialog"><button value="cancel">Keep playing</button><button value="reset">Start over</button></form></dialog>
-</main>
-<script>const SCENES = /* SCENES */;</script>
-<script>/* GAME */</script></body></html>
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sharster Farts · Shatterberg Arena</title><style>/* STYLES */</style></head>
+<body><main>
+<header><div class="brand"><span class="mark" aria-hidden="true">≋</span> SHARSTER FARTS</div><button id="sound" aria-pressed="true">Sound on</button></header>
+<section class="cabinet"><div class="marquee"><div><small>BASEPLATE BRAWL</small><h1>Shatterberg Arena</h1></div><div id="wallet" aria-live="polite">◆ 0 Shatters</div></div>
+<div class="field"><canvas id="arena" tabindex="0" aria-label="Shatterberg Arena. Click or tap a crystal or rival to approach and blast. Move with WASD or arrows and fire with Space."></canvas>
+<div id="callout" role="status">Grab a free bowl of chili.</div></div>
+<div class="controls"><div class="tank"><small>GAS TANK</small><div id="fuel" aria-label="0 of 3 charges"><i></i><i></i><i></i></div></div><button id="eat">Eat chili <kbd>E</kbd></button><button id="fire">Fart <kbd>Space</kbd></button><button id="shop" aria-expanded="false">Upgrades <b>↗</b></button></div></section>
+<section id="pantry" hidden><h2>Concession stand</h2><div class="shelves"><div><small>HOT FOOD</small><h3 id="foodName"></h3><p id="foodInfo"></p><button id="buyFood"></button></div><div><small>PLUMBING</small><h3 id="colonName"></h3><p id="colonInfo"></p><button id="buyColon"></button></div></div></section>
+<footer>Click a Shatter or rival to aim and blast. <span>WASD / arrows to move · E to eat · Space to fire</span></footer>
+</main><script type="application/json" id="rules">/* RULES */</script><script>/* GAME */</script></body></html>

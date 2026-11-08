@@ -1,127 +1,221 @@
+const rules = JSON.parse(document.getElementById("rules").textContent);
 const $ = id => document.getElementById(id);
-const slots = [
-  [1, "Loose Change", "Jingles when startled."],
-  [3, "Baja Mistake", "Technically a beverage."],
-  [6, "The Commuter", "Employee of the month."],
-  [8, "Drain Wayne", "Civil servant. Drain."],
-  [10, "Adult Swim", "Whistle included."],
-];
-const steps = [
-  ["lot","Catch the jingling fart.","Click Loose Change as it drifts past your net."],
-  ["lot","Make a vending purchase.","Your new fart sounds exactly like exact change."],
-  ["lot","Catch what the machine dispensed.","That blue thing certainly isn't a soda."],
-  ["lot","Follow the skrrt.","Someone left a traffic cone in the employee lot."],
-  ["watch","Give him some privacy.","Take off your shoes. Hold Look away until you hear three skrrts."],
-  ["commuter","Net the commuter.","Quick. He's about to clock in."],
-  ["lot","Clock in at Stall 6.","The Commuter has a staff key. The pool door needs a shot of Baja."],
-  ["pool","Let the drain come to you.","Set your net on the tile. Give Wayne a second to investigate."],
-  ["pool","Pull the plug.","Equip Drain Wayne and empty the deeper end."],
-  ["ledge","Catch the real lifeguard.","Watch the whistle. Swing while he's taking a breath."],
-  ["ledge","Shift complete.","Adult Swim blew the whistle all the way into your binder."],
-];
-const actions = [
-  ["Loose Change",35,58,"wisp"],["Feed vending machine",16,68],["Baja Mistake",27,52,"wisp blue"],
-  ["Investigate cone",69,72],["Hold · Look away",50,84],["Net the Commuter",59,73],
-  ["Unlock Stall 6",80,62],["Set down net",32,81],["Pull the plug",39,73],["Net Adult Swim",49,26],
-];
-const storageKey = "sharster.shift.v1";
-let phase = 0;
+const canvas = $("arena"), ctx = canvas.getContext("2d");
+const saveKey = "sharster.arena.v1";
+const progress = {money:0, food:0, colon:0};
 try {
-  const saved = Number(localStorage.getItem(storageKey));
-  if (Number.isInteger(saved) && saved >= 0 && saved < steps.length) phase = saved;
+  const saved=JSON.parse(localStorage.getItem(saveKey));
+  for(const [key,max] of [["money",9999999],["food",rules.foods.length-1],["colon",rules.colons.length-1]]){
+    if(Number.isSafeInteger(saved?.[key])) progress[key]=Math.max(0,Math.min(max,saved[key]));
+  }
 } catch {}
-let timers = [], holding = false, audioContext, sound = false;
-let feedbackTimer;
-function noise(freq, end, length=.15, type="triangle") {
-  if (!sound || !audioContext) return;
-  const osc = audioContext.createOscillator(), gain = audioContext.createGain();
-  const now = audioContext.currentTime;
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq,now); osc.frequency.exponentialRampToValueAtTime(end,now+length);
-  gain.gain.setValueAtTime(.08,now); gain.gain.exponentialRampToValueAtTime(.001,now+length);
-  osc.connect(gain); gain.connect(audioContext.destination); osc.start(); osc.stop(now+length);
+function save(){try{localStorage.setItem(saveKey,JSON.stringify(progress))}catch{}}
+const food=()=>rules.foods[progress.food], colon=()=>rules.colons[progress.colon];
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const hero={x:0,z:3,dx:0,dz:-1,color:"#3d7fad",name:"YOU",fuel:0};
+const rocks=[[0,-.4],[-5,2],[6,4],[4,-4],[-8,-2],[9,-2],[-3,-5],[-10,5],[8,6],[2,6],[-6,-6],[10,-6]].map(([x,z],i)=>({x,z,kind:"rock",tough:i%4===3,hp:i%4===3?3:1,respawn:0,seed:i*1.7}));
+const bots=[[-3,-2,"Kevin","#c36a8e"],[6,1,"Coach Beans","#e7863f"],[-8,4,"Todd","#806aa0"]].map(([x,z,name,color],i)=>({x,z,homeX:x,homeZ:z,name,color,kind:"bot",hp:3,respawn:0,next:8+i*2,dx:0,dz:1,seed:i*2}));
+const keys=new Set(), clouds=[], floaters=[], fragments=[];
+let walk=null,blast=null,clock=0,last=performance.now(),scale=1,cx=0,cy=0,W=1,H=1,emitAt=0;
+let audio,sound=true;
+function tone(start,end,seconds,type="sawtooth"){
+  if(!sound)return;
+  try{
+    audio??=new AudioContext();if(audio.state==="suspended")audio.resume().catch(()=>{});
+    const o=audio.createOscillator(),g=audio.createGain(),now=audio.currentTime;
+    o.type=type;o.frequency.setValueAtTime(start,now);o.frequency.exponentialRampToValueAtTime(end,now+seconds);
+    g.gain.setValueAtTime(.07,now);g.gain.exponentialRampToValueAtTime(.001,now+seconds);
+    o.connect(g);g.connect(audio.destination);o.start();o.stop(now+seconds);
+  }catch{}
 }
-function flash(words) {
-  clearTimeout(feedbackTimer); $("fx").textContent = words;
-  feedbackTimer = setTimeout(() => $("fx").textContent = "",1100);
+function message(s){$("callout").textContent=s}
+function hud(){
+  $("wallet").textContent="◆ "+progress.money+" Shatters";
+  [...$("fuel").children].forEach((el,i)=>el.classList.toggle("full",i<hero.fuel));
+  $("fuel").setAttribute("aria-label",hero.fuel+" of 3 charges");
+  $("eat").firstChild.textContent="Eat "+["chili","eggs","curry"][progress.food]+" ";
+  for(const [key,list,info] of [["food",rules.foods,"Stronger blast and longer reach."],["colon",rules.colons,"Longer continuous blast."]]){
+    const level=progress[key],next=list[level+1],button=$(key==="food"?"buyFood":"buyColon");
+    $(key+"Name").textContent=next?.name||list[level].name;
+    $(key+"Info").textContent=next?info+" "+(key==="food"?next.power+"× power":next.duration+" seconds"):"Fully upgraded.";
+    button.disabled=!next||progress.money<next.cost;
+    button.textContent=next?"Unlock · ◆ "+next.cost:"Maxed";
+  }
 }
-function clearTimers(){timers.forEach(clearTimeout); timers=[];holding=false}
-function advance(msg) {
-  clearTimers(); phase++; try {localStorage.setItem(storageKey,phase)} catch {}
-  render(); if(msg) flash(msg);
-  noise(180,510);
+function eat(){
+  if(hero.fuel===rules.capacity){message("Tank full. Point it at something.");return}
+  hero.fuel++;hero.eating=clock+.75;tone(230,95,.14,"triangle");hud();message(food().name+" down. Click a Shatter or rival.");
 }
-function render() {
-  const [scene,objective,note] = steps[phase];
-  $("scene").src=SCENES[scene]; $("scene").alt=scene==="lot"?"The closed gas station at dusk":scene==="watch"||scene==="commuter"?"The employee parking bay":"The pool beneath the pool";
-  $("stage").classList.toggle("closeup",scene==="watch"||scene==="commuter");
-  $("location").textContent=phase<4||phase===6?"Parking Lot 1":phase<6?"Employee parking":"The pool beneath the pool";
-  $("folio").textContent=phase<7?"Gas station":"Realm 01";
-  $("objective").textContent=objective; $("note").textContent=note;
-  const found=slots.filter(([at])=>phase>=at).length;
-  $("count").textContent=found+" / 5 collected"; $("entries").replaceChildren();
-  slots.forEach(([at,name,flavor],i)=>{
-    const item=document.createElement("li"), serial=document.createElement("small"), title=document.createElement("b");
-    serial.textContent="SPECIMEN 0"+(i+1);title.textContent=phase>=at?name:"???";
-    if(phase>=at){item.className="found"; item.title=flavor}
-    item.append(serial,title);$("entries").append(item);
-  });
-  $("actions").replaceChildren();
-  if(phase===10)return;
-  const [label,x,y,kind] = actions[phase], btn=document.createElement("button");
-  btn.className="target "+(kind||"");btn.textContent=label;btn.style.left=x+"%";btn.style.top=y+"%";$("actions").append(btn);
-  if(phase===4){ setupStakeout(btn);return }
-  if(phase===9){ setupLifeguard(btn);return }
-  btn.onclick=()=>{
-    if(phase===7){
-      btn.disabled=true;btn.textContent="Stay still…";$("note").textContent="A drain with legs is considering your offer.";
-      timers.push(setTimeout(()=>advance("WAYNE ACQUIRED"),1700));return;
+function buy(key,list){
+  const next=list[progress[key]+1];if(!next||progress.money<next.cost)return;
+  progress.money-=next.cost;progress[key]++;save();hud();tone(280,690,.2,"triangle");message(next.name+" unlocked.");
+}
+function reward(n,x,z){
+  progress.money+=n;save();hud();floaters.push({x,z,text:"+"+n+" ◆",until:clock+1.2});
+}
+function fire(dx=hero.dx,dz=hero.dz){
+  if(blast)return;
+  if(!hero.fuel){message("Out of gas. Eat a free bowl.");return}
+  hero.fuel--;walk=null;hero.dx=-dx;hero.dz=-dz;
+  blast={dx,dz,from:clock,end:clock+colon().duration,next:0,range:food().reach,power:food().power,color:food().color};
+  tone(89+progress.food*12,32,colon().duration);hud();message(["PFFFT.","BRAAAP.","STRUCTURAL DAMAGE."][progress.food]);
+}
+function forwardHit(a,b,dx,dz,range){
+  const x=b.x-a.x,z=b.z-a.z,d=Math.hypot(x,z);
+  return d<=range && (d<.65 || (x*dx+z*dz)/d>.77);
+}
+function puff(x,z,dx,dz,color,range=4){
+  const speed=range/.65;
+  clouds.push({x:x+dx*.35,z:z+dz*.35,h:.6,dx:dx*speed+(Math.random()-.5)*2,dz:dz*speed+(Math.random()-.5)*2,color,until:clock+.65});
+}
+function move(a,dx,dz,n){a.x=clamp(a.x+dx*n,-12.4,12.4);a.z=clamp(a.z+dz*n,-7.4,7.4)}
+function update(dt){
+  clock+=dt;
+  let mx=Number(keys.has("d")||keys.has("arrowright"))-Number(keys.has("a")||keys.has("arrowleft"));
+  let mz=Number(keys.has("s")||keys.has("arrowdown"))-Number(keys.has("w")||keys.has("arrowup"));
+  if(mx||mz)walk=null;
+  if(!blast){
+    if(walk){
+      const target=walk.target||walk;
+      if(target.respawn>clock){walk=null}
+      else{
+        const dx=target.x-hero.x,dz=target.z-hero.z,d=Math.hypot(dx,dz);
+        if(d<(walk.target?food().reach*.78:.18)){const attack=walk.target;walk=null;if(attack)fire(dx/(d||1),dz/(d||1))}
+        else{mx=dx/(d||1);mz=dz/(d||1)}
+      }
     }
-    const sounds=["JINGLE!","ka-chunk!","BAJA MISTAKE","he’s due.","","bip","EMPLOYEES ONLY","","glug…","TWEEET!"];
-    advance(sounds[phase]);
-  };
-}
-function setupLifeguard(btn){
-  let resting=false;
-  function cycle(){
-    btn.textContent="Whistling…";btn.style.background="#ffb291";resting=false;
-    noise(1050,1250,.2,"sine");
-    timers.push(setTimeout(()=>{
-      resting=true;btn.textContent="Net Adult Swim";btn.style.background="";
-    },1250));
-    timers.push(setTimeout(cycle,2850));
+    const n=Math.hypot(mx,mz);
+    if(n){hero.dx=mx/n;hero.dz=mz/n;move(hero,hero.dx,hero.dz,dt*6.6)}
   }
-  cycle();
-  btn.onclick=()=>{
-    if(resting){advance("TWEEET!");return}
-    flash("FOUL.");$("note").textContent="He whistled your net away. Wait for him to inhale.";noise(1220,790,.22);
-  };
-}
-function setupStakeout(btn){
-  function start(){
-    if(holding)return;holding=true;$("scene").src=SCENES.away;btn.textContent="Keep looking away…";
-    [1,2,3].forEach(n=>timers.push(setTimeout(()=>{
-      noise(100,40,.23,"sawtooth");flash("skrrt");$("note").textContent=n+" / 3 parking spaces";
-    },n*650)));
-    timers.push(setTimeout(()=>advance("bip"),2350));
+  if(blast){
+    if(clock>=blast.end)blast=null;
+    else{
+      const b=blast;
+      if(clock>=emitAt){emitAt=clock+.035;puff(hero.x,hero.z,b.dx,b.dz,b.color,b.range)}
+      if(clock>=b.next){
+        b.next=clock+.32;
+        for(const o of [...rocks,...bots]){
+          if(o.respawn>clock||!forwardHit(hero,o,b.dx,b.dz,b.range))continue;
+          o.hp-=b.power;o.flash=clock+.2;
+          if(o.kind==="bot"){move(o,b.dx,b.dz,1.2);o.stunned=clock+.65}
+          if(o.hp<=0){o.respawn=clock+(o.kind==="rock"?4:5);o.hp=o.kind==="bot"||o.tough?3:1;
+            reward(o.kind==="bot"?5:o.tough?4:2,o.x,o.z);
+            if(o.kind==="bot"){o.warn=0;message(o.name+" got winded. +5 Shatters.")}
+            else for(let i=0;i<8;i++)fragments.push({x:o.x,z:o.z,vx:(Math.random()-.5)*4,vz:(Math.random()-.5)*4,born:clock});
+          }
+        }
+      }
+    }
   }
-  function stop(){
-    if(!holding)return;clearTimers();render();$("note").textContent="He saw you peek. Three spaces, one uninterrupted look away.";
+  for(const bot of bots){
+    if(bot.respawn>clock||bot.stunned>clock)continue;
+    if(bot.warn){
+      if(clock>=bot.warn){
+        for(let j=0;j<12;j++)puff(bot.x,bot.z,bot.aimX,bot.aimZ,"#f5ae7f");
+        if(forwardHit(bot,hero,bot.aimX,bot.aimZ,4)){move(hero,bot.aimX,bot.aimZ,2);walk=null;message(bot.name+" blasted you back!")}
+        bot.warn=0;bot.next=clock+7;
+      }
+      continue;
+    }
+    const dx=hero.x-bot.x,dz=hero.z-bot.z,d=Math.hypot(dx,dz);
+    if(clock>=bot.next && d<4.4){bot.aimX=dx/(d||1);bot.aimZ=dz/(d||1);bot.dx=-bot.aimX;bot.dz=-bot.aimZ;bot.warn=clock+.9;continue}
+    const tx=bot.homeX+Math.sin(clock*.5+bot.seed)*2,tz=bot.homeZ+Math.cos(clock*.4+bot.seed)*1.5;
+    const vx=tx-bot.x,vz=tz-bot.z,n=Math.hypot(vx,vz);if(n>.1){bot.dx=vx/n;bot.dz=vz/n;move(bot,bot.dx,bot.dz,Math.min(n,dt*1.4))}
   }
-  btn.onpointerdown=e=>{e.preventDefault();btn.setPointerCapture(e.pointerId);start()};
-  btn.onpointerup=btn.onpointercancel=btn.onlostpointercapture=stop;
-  btn.onkeydown=e=>{if([" ","Enter"].includes(e.key)){e.preventDefault();start()}};
-  btn.onkeyup=e=>{if([" ","Enter"].includes(e.key)){e.preventDefault();stop()}};
-  btn.onblur=stop;
+  for(let i=clouds.length-1;i>=0;i--){const c=clouds[i];if(c.until<clock)clouds.splice(i,1);else{c.x+=c.dx*dt;c.z+=c.dz*dt;c.h+=dt*.6}}
+  for(let i=floaters.length-1;i>=0;i--)if(floaters[i].until<clock)floaters.splice(i,1);
+  for(let i=fragments.length-1;i>=0;i--)if(clock-fragments[i].born>.7)fragments.splice(i,1);
 }
-$("sound").onclick=()=>{
-  if(!audioContext){const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;audioContext=new Audio()}
-  sound=!sound;audioContext.resume().catch(()=>{});$("sound").textContent="Sound "+(sound?"on":"off");
-  $("sound").setAttribute("aria-pressed",String(sound));noise(290,390);
-};
-$("restart").onclick=()=>$("confirm").showModal();
-$("confirm").onclose=()=>{
-  if($("confirm").returnValue!=="reset")return;
-  clearTimers();phase=0;try{localStorage.removeItem(storageKey)}catch{}flash("");render();
-};
-render();
+function project(x,z,h=0){return [cx+(x-z*.39)*scale,cy+(z*.63+x*.16-h)*scale]}
+function ground(px,py){const a=(px-cx)/scale,b=(py-cy)/scale,z=(b-.16*a)/.6924;return {x:a+.39*z,z}}
+function poly(vertices,color,line){
+  ctx.beginPath();vertices.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fillStyle=color;ctx.fill();
+  if(line){ctx.strokeStyle=line;ctx.lineWidth=Math.max(.65,scale*.035);ctx.stroke()}
+}
+function prism(x,z,y,w,d,h,top,left,right){
+  const A=project(x-w/2,z-d/2,y+h),B=project(x+w/2,z-d/2,y+h),C=project(x+w/2,z+d/2,y+h),D=project(x-w/2,z+d/2,y+h);
+  poly([D,C,project(x+w/2,z+d/2,y),project(x-w/2,z+d/2,y)],left);
+  poly([B,C,project(x+w/2,z+d/2,y),project(x+w/2,z-d/2,y)],right);poly([A,B,C,D],top);
+}
+function oval(x,y,rx,ry,c){ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fillStyle=c;ctx.fill()}
+function bowl(x,z,h,tier){
+  const [px,py]=project(x,z,h),r=scale*.44;
+  oval(px,py+r*.22,r*.78,r*.45,"#bb996b");
+  oval(px,py,r,r*.49,"#fff0cc");
+  oval(px,py-r*.07,r*.82,r*.31,["#ab4027","#f6c952","#cf542e"][tier]);
+  for(let i=0;i<3;i++)oval(px+(i-1)*r*.36,py-r*.1+(i%2)*r*.1,r*.1,r*.07,tier===1?"#fff9ce":"#6b3023");
+}
+function tag(x,y,label,bg,fg){
+  const size=Math.max(10,Math.min(16,scale*.46));ctx.font="bold "+size+"px Consolas, monospace";ctx.textAlign="center";
+  const w=ctx.measureText(label).width+10;ctx.fillStyle=bg;ctx.fillRect(x-w/2,y-size,w,size+5);ctx.fillStyle=fg;ctx.fillText(label,x,y+1);
+}
+function actor(o){
+  const [x,y]=project(o.x,o.z);oval(x,y,scale*.63,scale*.24,"#32492348");
+  const bend=o===hero?!!blast:!!o.warn,upper=bend?.86:1.15;
+  for(const k of [-1,1])prism(o.x+k*.19,o.z,0,.32,.42,.61,"#405468","#23504e","#263c42");
+  prism(o.x,o.z,.54,.82,.52,upper-.19,o.color,o.color,"#38575a");
+  for(const k of [-1,1])prism(o.x+k*.53,o.z,.61,.24,.38,.62,"#ffcf7d","#dfa754","#bf873b");
+  const hx=o.x+(bend?o.dx*.42:0),hz=o.z+(bend?o.dz*.42:0);
+  prism(hx,hz,upper+.18,.62,.58,.59,"#ffdf8b","#f7c774","#dba548");
+  const [ex,ey]=project(hx+o.dx*.28,hz+o.dz*.28,upper+.5);
+  if(o.dz>-.4){oval(ex-scale*.1,ey,scale*.038,scale*.045,"#2d322a");oval(ex+scale*.1,ey,scale*.038,scale*.045,"#2d322a")}
+  if(o.eating>clock&&!bend)bowl(o.x+.38,o.z+.32,1.45+.18*Math.sin((o.eating-clock)*4),progress.food);
+  const [tx,ty]=project(o.x,o.z,2.35);tag(tx,ty,o.warn?"INCOMING!":o.name,o===hero?"#20382d":o.warn?"#ac462a":"#f8ecc9",o===hero?"#dafa7b":o.warn?"white":"#3b4337");
+}
+function crystal(o){
+  const [x,y]=project(o.x,o.z);const s=scale*(o.tough?.77:.59),bob=Math.sin(clock*2.6+o.seed)*s*.05;
+  oval(x,y,s*.8,s*.26,"#32492348");
+  const top=[x,y-2*s+bob],l=[x-s*.72,y-s*.72+bob],m=[x+s*.12,y-s*.5+bob],r=[x+s*.7,y-s*1.05+bob],b=[x,y-.12*s+bob];
+  const flash=o.flash>clock;
+  poly([top,l,m],flash?"white":"#ffdb68","#735d32");poly([top,m,r],o.tough?"#f58047":"#eeb345","#735d32");poly([l,m,b],"#d79835");poly([m,r,b],"#b77927");
+}
+function draw(){
+  W=canvas.clientWidth;H=canvas.clientHeight;const dpr=Math.min(2,devicePixelRatio||1);
+  if(canvas.width!==Math.round(W*dpr)||canvas.height!==Math.round(H*dpr)){canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr)}
+  ctx.setTransform(dpr,0,0,dpr,0,0);scale=Math.min(W/34,H/18.8);cx=W*.5;cy=H*.55;
+  const sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,"#a8d8d3");sky.addColorStop(.62,"#e1ead1");sky.addColorStop(1,"#b5c3a0");ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  for(let i=0;i<8;i++){const x=W*(i*.17-.09),y=H*(.24+.05*Math.sin(i*7));oval(x,y,W*.078,H*.026,"#f9f4da");oval(x-W*.019,y-H*.014,W*.031,H*.032,"#f9f4da")}
+  prism(0,0,-.85,27,17,.85,"#91b578","#678759","#536e4c");
+  for(let x=-13;x<=13;x++)for(let z=-8;z<=8;z++){const [sx,sy]=project(x,z,.025);oval(sx,sy,scale*.13,scale*.067,"#739963");oval(sx,sy-scale*.035,scale*.12,scale*.055,"#a7c78b")}
+  for(let x=-13;x<=13;x+=2){prism(x,-8.1,0,1.96,.28,.3,x%4===-1?"#fff0bb":"#e9a65b","#aa794d","#927848")}
+  for(const x of [-11.6,-6.4])prism(x,-7,0,.18,.18,2.65,"#674f37","#543e2e","#524638");
+  for(let i=0;i<6;i++)prism(-11.5+i,-7,2.5,1,.95,.28,i%2?"#f5dea0":"#da7045",i%2?"#e5cc89":"#bd5337","#a66340");
+  prism(-9,-7,0,5.2,1,.95,"#efd693","#bf7845","#8c5539");
+  for(let i=0;i<3;i++)bowl(-10.4+i*1.4,-6.8,1.12,i);
+  const [bx,by]=project(-9,-7,1.6);tag(bx,by,"CHILI","#fff0c7","#a74225");
+  const objects=[...rocks,...bots,hero].filter(o=>!(o.respawn>clock)).sort((a,b)=>(a.z*.63+a.x*.16)-(b.z*.63+b.x*.16));
+  if(walk){const t=walk.target||walk;const [x,y]=project(t.x,t.z);ctx.strokeStyle="#fff4a3";ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(x,y,scale*.85,scale*.32,0,0,7);ctx.stroke()}
+  for(const o of objects)o.kind==="rock"?crystal(o):actor(o);
+  for(const c of clouds){const [x,y]=project(c.x,c.z,c.h),life=(c.until-clock)/.65;ctx.globalAlpha=life*.86;const r=scale*(.25+(1-life)*.65);oval(x,y,r,r*.78,c.color)}
+  ctx.globalAlpha=1;
+  for(const f of fragments){
+    const t=clock-f.born,[x,y]=project(f.x+f.vx*t,f.z+f.vz*t,.6+4*t-7*t*t),r=scale*.14;
+    poly([[x-r,y],[x+r*.3,y-r*1.6],[x+r,y+r]],"#ffd55f","#9f6d29");
+  }
+  for(const f of floaters){const [x,y]=project(f.x,f.z,1.4+(1.2-f.until+clock));tag(x,y,f.text,"#ffe38c","#67441b")}
+}
+canvas.addEventListener("pointerdown",e=>{
+  e.preventDefault();canvas.focus({preventScroll:true});
+  const rect=canvas.getBoundingClientRect(),px=e.clientX-rect.left,py=e.clientY-rect.top;
+  let target=null,nearest=Infinity;
+  for(const o of [...rocks,...bots]){
+    if(o.respawn>clock)continue;
+    const [x,y]=project(o.x,o.z,o.kind==="bot"?1:.7),d=Math.hypot(x-px,y-py);
+    if(d<Math.max(15,scale*1.25)&&d<nearest){nearest=d;target=o}
+  }
+  if(target&&!hero.fuel){message("Eat chili first. One bowl fuels one blast.");return}
+  walk=target?{target}:ground(px,py);if(!target){walk.x=clamp(walk.x,-12.4,12.4);walk.z=clamp(walk.z,-7.4,7.4)}
+});
+window.addEventListener("keydown",e=>{
+  const k=e.key.toLowerCase();if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(k===" "&&document.activeElement?.tagName==="BUTTON")return;
+  if([" ","arrowup","arrowdown","arrowleft","arrowright"].includes(k))e.preventDefault();keys.add(k);
+  if(e.repeat)return;if(k==="e")eat();if(k===" ")fire();
+});
+window.addEventListener("keyup",e=>keys.delete(e.key.toLowerCase()));window.addEventListener("blur",()=>keys.clear());
+$("eat").onclick=()=>{eat();canvas.focus({preventScroll:true})};$("fire").onclick=()=>{fire();canvas.focus({preventScroll:true})};
+$("shop").onclick=()=>{$("pantry").hidden=!$("pantry").hidden;$("shop").setAttribute("aria-expanded",String(!$("pantry").hidden));if(!$("pantry").hidden)$("pantry").scrollIntoView({block:"nearest"})};
+$("buyFood").onclick=()=>buy("food",rules.foods);$("buyColon").onclick=()=>buy("colon",rules.colons);
+$("sound").onclick=()=>{sound=!sound;$("sound").textContent=sound?"Sound on":"Sound off";$("sound").setAttribute("aria-pressed",String(sound));tone(260,350,.1,"triangle")};
+function frame(now){update(Math.min(.05,(now-last)/1000));last=now;draw();requestAnimationFrame(frame)}
+hud();requestAnimationFrame(frame);

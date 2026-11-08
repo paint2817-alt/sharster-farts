@@ -1,48 +1,50 @@
-const assert = require('node:assert/strict');
-const path = require('node:path');
-const {pathToFileURL} = require('node:url');
-const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const assert = require("node:assert/strict");
+const path = require("node:path");
+const {pathToFileURL}=require("node:url");
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE || "playwright");
+const url=pathToFileURL(path.join(__dirname,"..","Play Sharster Farts.html")).href;
+
 (async()=>{
  const browser=await chromium.launch({executablePath:process.env.CHROME_PATH,headless:true});
  try{
-  const page=await browser.newPage({viewport:{width:1280,height:850},reducedMotion:'reduce'});
-  const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(pathToFileURL(path.join(__dirname,'..','Play Sharster Farts.html')).href);
-  const action=()=>page.locator('.target');
-  await page.locator('#scene').evaluate(img=>img.decode());
-  await page.getByRole('button',{name:'Sound off'}).click();
-  for(const text of ['Loose Change','Feed vending machine','Baja Mistake','Investigate cone']){
-   assert.ok((await action().innerText()).includes(text)); await action().click();
+  const page=await browser.newPage({viewport:{width:1280,height:850}});
+  const errors=[];page.on("pageerror",e=>errors.push(e.message));
+  await page.goto(url);await page.waitForFunction(()=>W>100);
+  if(process.env.ARENA_SCREENSHOT)await page.screenshot({path:process.env.ARENA_SCREENSHOT});
+  await page.locator("#fire").click();
+  assert.match(await page.locator("#callout").innerText(),/Out of gas/);
+  await page.locator("#shop").click();
+  assert.equal(await page.locator("#buyFood").isDisabled(),true);
+  async function smash(kind,index){
+    await page.waitForFunction(()=>!blast);
+    await page.locator("#eat").click();
+    const p=await page.evaluate(([kind,index])=>{
+      const o=(kind==="rock"?rocks:bots)[index];
+      const [x,y]=project(o.x,o.z,kind==="rock"?.7:1);
+      const r=canvas.getBoundingClientRect();return {x:x+r.left,y:y+r.top};
+    },[kind,index]);
+    await page.mouse.click(p.x,p.y);
+    await page.waitForFunction(([kind,index])=>(kind==="rock"?rocks:bots)[index].respawn>clock,[kind,index],{timeout:9000});
   }
-  await action().focus();await page.keyboard.down('Enter');await page.waitForTimeout(350);await page.keyboard.up('Enter');
-  assert.match(await page.locator('#note').innerText(),/peek/);
-  await action().focus();await page.keyboard.down('Enter');await page.waitForTimeout(2550);await page.keyboard.up('Enter');
-  await page.getByRole('button',{name:'Net the Commuter'}).click();
-  await page.reload();assert.match(await page.locator('#count').innerText(),/3 \/ 5/);
-  await action().click();await action().click();
-  await page.getByRole('button',{name:'Pull the plug'}).click();
-  await page.getByRole('button',{name:'Whistling…'}).click();
-  assert.match(await page.locator('#note').innerText(),/whistled your net away/);
-  await page.getByRole('button',{name:'Net Adult Swim'}).click();
-  assert.match(await page.locator('#count').innerText(),/5 \/ 5/);
-  assert.equal(await page.locator('#objective').innerText(),'Shift complete.');
-  await page.getByText('New shift',{exact:true}).click();await page.getByText('Keep playing',{exact:true}).click();assert.equal(await page.locator('li.found').count(),5);
-  await page.getByText('New shift',{exact:true}).click();await page.getByText('Start over',{exact:true}).click();
-  await page.waitForFunction(()=>document.querySelectorAll('li.found').length===0);
-  await page.setViewportSize({width:390,height:760});
-  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await smash("rock",0);assert.ok(await page.evaluate(()=>progress.money>=2));
+  await smash("rock",1);await smash("rock",2);
+  await page.locator("#buyFood").click();
+  assert.match(await page.locator("#eat").innerText(),/eggs/);
+  await smash("bot",1);await page.locator("#buyColon").click();
+  assert.equal(await page.evaluate(()=>progress.colon),1);
+  await page.reload();assert.equal(await page.evaluate(()=>progress.food+progress.colon),2);
+  await page.keyboard.press("e");await page.keyboard.press("Space");
+  await page.waitForFunction(()=>blast!==null);
+  assert.ok(await page.evaluate(()=>blast.end-blast.from>1.4&&blast.power===2));
+  await page.waitForFunction(()=>!blast);
+  const before=await page.evaluate(()=>hero.x);
+  await page.keyboard.down("d");await page.waitForTimeout(320);await page.keyboard.up("d");
+  assert.ok(await page.evaluate(()=>hero.x)>before);
+  const mobile=await browser.newPage({viewport:{width:390,height:760},hasTouch:true,isMobile:true});
+  await mobile.goto(url);await mobile.locator("#eat").tap();await mobile.locator("#fire").tap();
+  await mobile.waitForFunction(()=>progress.money>=2);
+  assert.ok(await mobile.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   assert.deepEqual(errors,[]);
-  const touchPage=await browser.newPage({hasTouch:true,isMobile:true,viewport:{width:390,height:760}});
-  await touchPage.goto(page.url());
-  for(let i=0;i<4;i++) {
-    const target=await touchPage.locator('.target').boundingBox();
-    await touchPage.touchscreen.tap(target.x+target.width/2,target.y+target.height/2);
-  }
-  const ctl=await touchPage.context().newCDPSession(touchPage);
-  const box=await touchPage.locator('.target').boundingBox();
-  await ctl.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:box.x+box.width/2,y:box.y+box.height/2}]});
-  await touchPage.getByRole('button',{name:'Net the Commuter'}).waitFor();
-  await ctl.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-  console.log('PASS: catch-to-boss run, whistle timing, cancelled and completed stakeouts, save/reload, reset/cancel, sound, mobile fit and touch hold.');
+  console.log("PASS: aim, food, gas consumption, crystal breaks, NPC knockout, currency purchases, longer blasts, reload, keyboard movement, touch play.");
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});

@@ -1,44 +1,30 @@
-# Sharster Farts
+# Sharster Farts · Shatterberg Arena
 
-A five-catch Roblox demo set at a closed gas station and the municipal pool beneath it. Your starter equipment is a butterfly net. The employee parking cone is due.
+Eat a free bowl of chili. Face a target and fire. Your character turns around, bends over and blasts. Amber Shatters break for currency. Spend it on stronger food or a longer-running colon.
 
 ## Play
 
-**Roblox Studio** · Open **Sharster Farts.rbxlx** in Studio and press **F5** to spawn into the lot. Use the standard avatar controls and follow the gold objective marker. Hold the interaction prompt to swing the net. On touch, press the prompt itself. The **Binder** button shows the five specimen slots.
+- **Browser** · Open **Play Sharster Farts.html** in Chrome or Edge. Click a crystal or rival to approach, aim and fire. Click bare ground to walk. Use **E** to eat, **WASD** or arrows to move, and **Space** to fire in your current facing direction. Touch players can tap the field and buttons. The three rivals are NPCs. Purchases and currency save locally when browser storage is available.
+- **Roblox Studio** · Open **Sharster Farts.rbxlx** and press **F5**. Eat with **E**, walk through the arena gate, face your target and press **F**. The HUD also supports tapping. Player attacks and NPC attacks work inside the striped boundary. Test with two Studio clients to fight another player. Wallet and upgrades last for the server session.
 
-During the cone stakeout, stand near the cone, move a step facing away from it, then let go of the movement controls. The cone watches your avatar’s facing direction. In the pool, stand still close to Wayne. At the ledge, swing between whistles.
+One meal fills one of three charges. Small Shatters pay 2, hard Shatters pay 4, and a knockout pays 5. Shatters and NPCs respawn. In Roblox, knocked-out players respawn in the canteen.
 
-**Browser** · Double-click **Play Sharster Farts.html** for an offline, illustrated point-and-click version of the same shift. The entire game and its artwork are in that file. Click or tap highlighted targets, hold **Look away** during the stakeout, and time the last catch. Keyboard players can Tab to each action and use Enter. Sound is optional.
-
-The Studio version keeps each player’s binder and encounters independent during the server session. Respawning preserves progress. The browser version remembers the current step on this device when browser storage is available. **New shift** starts an empty binder.
-
-## What’s playable
-
-| Catch | What it does this shift |
-| --- | --- |
-| Loose Change | Pays the vending machine by jingling. |
-| Baja Mistake | Comes out of the vending machine and powers the staff entrance. |
-| The Commuter | Parks his cone and brings the staff key for Stall 6. |
-| Drain Wayne | Drains the pool and removes Adult Swim’s enormous reflection. |
-| Adult Swim | Completes the binder. He brought his whistle. |
+| Purchase | Shatters | Effect |
+| --- | ---: | --- |
+| Gas station eggs | 6 | Double power and greater reach |
+| Reactor curry | 16 | Quadruple power and maximum reach |
+| Extended colon | 5 | 1.5-second blast |
+| Concert tuba | 14 | 2.4-second blast |
 
 ## Develop
 
-Edit the Luau scripts in `src/`. The server validates progression, distance, stakeout time and boss timing. The client draws each player's creatures, net, prompts and binder. The world geometry and service layout are authored in `tools/build.py`.
-
-Edit the browser version in `browser/`. The original field-guide sheets are in `art/`. The browser embeds cropped JPEG views from `browser/scenes/`. To change the crops, edit and run `tools/prepare-art.py` with Pillow installed.
-
-From the repository root, run:
+Edit the shared economy in `rules.json`, Roblox game scripts in `src/`, and the offline game in `browser/`. World geometry lives in `tools/build.py`. From the repository root run:
 
 ```sh
 python tools/build.py
 python tools/check-place.py
 ```
 
-Building uses the Python standard library. Both playable files are committed. Regenerating the place replaces direct edits to the exported Studio file, so keep changes to geometry and scripts in source.
+Both exported games are committed. Building regenerates them from source. The browser regression test uses Playwright and Chromium. Set `PLAYWRIGHT_MODULE` and `CHROME_PATH` if using an external installation, then run `node tools/check-browser.cjs`.
 
-## Playtest
-
-In Studio, try a solo shift through the pool, reset your character mid-pool and check that you return to the ladder with your binder intact. In a two-player test, advancing one binder should leave the other player's creatures and pool reflection available.
-
-The browser smoke test accepts Playwright and an installed Chromium browser. Set `PLAYWRIGHT_MODULE` to the module path and `CHROME_PATH` to the browser executable if they are outside the defaults. Run `node tools/check-browser.cjs` from the repository root.
+The original gas-station hunt is available at commit `4a9eccf`.

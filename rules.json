@@ -1,0 +1,43 @@
+{
+  "foods": [
+    {
+      "name": "Spicy chili",
+      "cost": 0,
+      "power": 1,
+      "reach": 6,
+      "color": "#bded61"
+    },
+    {
+      "name": "Gas station eggs",
+      "cost": 6,
+      "power": 2,
+      "reach": 7.5,
+      "color": "#f2d654"
+    },
+    {
+      "name": "Reactor curry",
+      "cost": 16,
+      "power": 4,
+      "reach": 9,
+      "color": "#ff865c"
+    }
+  ],
+  "colons": [
+    {
+      "name": "Stock colon",
+      "cost": 0,
+      "duration": 0.8
+    },
+    {
+      "name": "Extended colon",
+      "cost": 5,
+      "duration": 1.5
+    },
+    {
+      "name": "Concert tuba",
+      "cost": 14,
+      "duration": 2.4
+    }
+  ],
+  "capacity": 3
+}
